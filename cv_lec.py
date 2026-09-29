@@ -49,6 +49,30 @@ rocky_beige = cv2.bitwise_and(rocky, rocky, mask=mask_beige)
 cv2.imshow('Rocky Beige', rocky_beige)
 cv2.imwrite('rocky_beige.png', rocky_beige)
 
+## line detection
+rocky_lines = rocky.copy()
+lines = cv2.HoughLinesP(rocky_edges, 1, np.pi / 180, threshold=80, minLineLength=10, maxLineGap=10)
+if lines is not None:
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        cv2.line(rocky_lines, (x1, y1), (x2, y2), (0, 0, 255), 2)
+print(f"Lines detected: {0 if lines is None else len(lines)}")
+cv2.imshow('Rocky Lines', rocky_lines)
+cv2.imwrite('rocky_lines.png', rocky_lines)
+
+## circle detection
+rocky_circles = rocky.copy()
+rocky_gray_median = rocky_gray_blur#cv2.medianBlur(rocky_gray, 5)
+circles = cv2.HoughCircles(rocky_gray_median, cv2.HOUGH_GRADIENT, dp=1.2, minDist=5,
+                           param1=90, param2=41, minRadius=1, maxRadius=50)
+if circles is not None:
+    for x, y, r in np.round(circles[0]).astype(int):
+        cv2.circle(rocky_circles, (x, y), r, (255, 0, 0), 1)   # outline
+        cv2.circle(rocky_circles, (x, y), 2, (0, 0, 255), 2)   # center
+print(f"Circles detected: {0 if circles is None else len(circles[0])}")
+cv2.imshow('Rocky Circles', rocky_circles)
+cv2.imwrite('rocky_circles.png', rocky_circles)
+
 ## image classification with YOLO
 results = model_cls(rocky)
 for r in results:
