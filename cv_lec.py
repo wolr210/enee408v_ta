@@ -4,6 +4,7 @@ import ultralytics
 
 model_cls = ultralytics.YOLO('yolo26n-cls.pt')
 model_det = ultralytics.YOLO('yolo26n.pt')
+model_seg = ultralytics.YOLO('yolo26n-seg.pt')
 
 ## original
 rocky = cv2.imread('rocky.png')
@@ -70,6 +71,44 @@ for r in results:
         cv2.putText(rocky_det, f"{label} {confidence:.2f}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 cv2.imshow('Rocky Detection', rocky_det)
 cv2.imwrite('rocky_detection.png', rocky_det)
+
+## image segmentation with YOLO
+def segment_color(i):
+    # step around the hue wheel so neighboring segments get clearly different colors
+    hue = (i * 37) % 180
+    hsv = np.uint8([[[hue, 220, 255]]])
+    return tuple(int(c) for c in cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0, 0])
+
+rocky_seg = rocky.copy()
+overlay = rocky.copy()
+results = model_seg(rocky)
+segments = []
+for r in results:
+    if r.masks is None:
+        print("No objects segmented")
+        continue
+    for polygon, box in zip(r.masks.xy, r.boxes):
+        pts = polygon.astype(np.int32)
+        if len(pts) == 0:
+            continue
+        confidence = box.conf[0].numpy()
+        class_id = int(box.cls[0].numpy())
+        label = r.names[class_id]
+        color = segment_color(len(segments))
+        print(f"Segmented object: {label}, Confidence: {confidence:.2f}")
+        cv2.fillPoly(overlay, [pts], color)
+        segments.append((pts, label, confidence, color))
+
+# blend the filled masks with the original so the image shows through
+rocky_seg = cv2.addWeighted(overlay, 0.4, rocky_seg, 0.6, 0)
+
+# draw outlines and labels on top of the blended image
+for pts, label, confidence, color in segments:
+    cv2.polylines(rocky_seg, [pts], True, color, 2)
+    x, y = pts[:, 0].min(), pts[:, 1].min()
+    cv2.putText(rocky_seg, f"{label} {confidence:.2f}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+cv2.imshow('Rocky Segmentation', rocky_seg)
+cv2.imwrite('rocky_segmentation.png', rocky_seg)
 
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
